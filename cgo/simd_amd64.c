@@ -2,19 +2,6 @@
 #include <immintrin.h>
 #include <xmmintrin.h>
 
-//16 floats AVX-512 instructions
-/*void VecMul512(int sz, float const *vec1,float const *vec2, float *out) {
-	int max = sz/16; // sz = nfloats, sz / 8 floats
-
-	__m512 v1,v2, r;
-	for (int i = 0; i <= max; i++) {
-		int s = i * 16; // 32 bytes
-		v1 = _mm512_load_ps(&vec1[s]);
-		v2 = _mm512_load_ps(&vec2[s]);
-		r = _mm512_mul_ps(v1,v2);
-		_mm512_store_ps(&out[s],r);
-	}
-}*/
 
 //8 floats 32bits
 void VecMul256(int sz, float const *vec1,float const *vec2, float *out) {
