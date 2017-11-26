@@ -16,19 +16,17 @@ var (
 	}{
 		{"Mul", vec.Mul},
 		{"MulFunc", vec.MulFunc},
-		{"asm.MulSSEx4gi", vec.MulASMSSEx4gi},
-		{"asm.MulChewxy", vec.MulASMChewxy},
-		//{"MulASMx4", vec.MulASMx4},
-		{"cgo.MulSSEx4", vec.MulCGOSSEx4},
-		{"cgo.MulSSEx4gi", vec.MulCGOSSEx4gi},
-		{"cgo.MulXVAx8", vec.MulCGOXVAx8},
+		{"asm.Mulf32x4sse", vec.MulASMf32x4sse},
+		{"cgo.Mulf32x4sse", vec.MulCGOf32x4sse},
+		{"cgo.Mulf32x8xva", vec.MulCGOf32x8xva},
 	}
 
-	NWorkers = 2                 // Workers for multiple go routines
-	vecSize  = 20 * NWorkers * 8 // 8 floats to do 256bit operation
+	NWorkers = 4                    // Workers for multiple go routines
+	vecSize  = 10000 * NWorkers * 8 // 8 floats to do 256bit operation
 
 	vec1   = make([]float32, vecSize)
 	vec2   = make([]float32, vecSize)
+	out    = make([]float32, vecSize)
 	sample = make([]float32, vecSize)
 )
 
@@ -42,12 +40,12 @@ func init() {
 }
 
 func TestVecSingle(t *testing.T) {
-	out := make([]float32, vecSize)
 	for _, f := range testFuncs {
 		t.Run(f.name, func(t *testing.T) {
 			f.fn(vec1, vec2, out)
-			t.Log(sample)
-			t.Log(out)
+			t.Logf("Vec1:   %2v", vec1)
+			t.Logf("Out:    %2v", out)
+			t.Logf("Sample: %2v", sample)
 			if !reflect.DeepEqual(sample, out) {
 				t.Fatal("Value mismatch")
 			}
@@ -55,7 +53,6 @@ func TestVecSingle(t *testing.T) {
 	}
 }
 func TestVecRoutines(t *testing.T) {
-	out := make([]float32, vecSize)
 	for _, f := range testFuncs {
 		t.Run(f.name, func(t *testing.T) {
 			goVec(vec1, vec2, out, f.fn)
@@ -68,7 +65,6 @@ func TestVecRoutines(t *testing.T) {
 	}
 }
 func TestVecWorker(t *testing.T) {
-	out := make([]float32, vecSize)
 	for _, f := range testFuncs {
 		t.Run(f.name, func(t *testing.T) {
 			goWorkerVec(vec1, vec2, out, f.fn)
@@ -83,7 +79,6 @@ func TestVecWorker(t *testing.T) {
 
 // Benchmarks
 func BenchmarkVecSingle(b *testing.B) {
-	out := make([]float32, vecSize)
 	for _, f := range testFuncs {
 		b.Run(f.name, func(b *testing.B) {
 			for n := b.N; n >= 0; n-- { // is this safe?
@@ -93,7 +88,6 @@ func BenchmarkVecSingle(b *testing.B) {
 	}
 }
 func BenchmarkVecRoutines(b *testing.B) {
-	out := make([]float32, vecSize)
 	for _, f := range testFuncs {
 		b.Run(f.name, func(b *testing.B) {
 			for n := b.N; n >= 0; n-- { // is this safe?
@@ -103,7 +97,6 @@ func BenchmarkVecRoutines(b *testing.B) {
 	}
 }
 func BenchmarkVecWorker(b *testing.B) {
-	out := make([]float32, vecSize)
 	for _, f := range testFuncs {
 		b.Run(f.name, func(b *testing.B) {
 			for n := b.N; n >= 0; n-- { // is this safe?

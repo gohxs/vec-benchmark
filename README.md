@@ -11,53 +11,34 @@ Running
   go test github.com/gohxs/vec-benchmark -bench .
 ```
 
-Sample data:
-
-```go
-var (
-  NWorkers = 2                 // Workers for multiple go routines
-  vecSize  = 32 * NWorkers * 8 // Aligned to NWorkers and maximum 8 floats (512 float32)
-
-  vec1   = make([]float32, vecSize)
-  vec2   = make([]float32, vecSize)
-  sample = make([]float32, vecSize)
-)
-```
-
-Sample test
-
-```go
-out := make([]float32,vecSize)
-vec.Mul(vec1,vec2,out)
+Sample result for
 
 ```
-
-Sample result
+NWorkers = 4
+vecSize  = 10000 * NWorkers * 8
+```
 
 ```
 goos: linux
 goarch: amd64
 pkg: github.com/gohxs/vec-benchmark
-BenchmarkVecSingle/Mul-4                   5000000               258 ns/op
-BenchmarkVecSingle/MulFunc-4               5000000               267 ns/op
-BenchmarkVecSingle/asm.MulSSEx4gi-4        3000000               467 ns/op
-BenchmarkVecSingle/cgo.MulSSEx4-4         20000000               108 ns/op
-BenchmarkVecSingle/cgo.MulSSEx4gi-4         200000              7081 ns/op
-BenchmarkVecSingle/cgo.MulXVAx8-4         20000000                83 ns/op
-BenchmarkVecRoutines/Mul-4                 2000000               725 ns/op
-BenchmarkVecRoutines/MulFunc-4             2000000               728 ns/op
-BenchmarkVecRoutines/asm.MulSSEx4gi-4      2000000               980 ns/op
-BenchmarkVecRoutines/cgo.MulSSEx4-4        2000000               613 ns/op
-BenchmarkVecRoutines/cgo.MulSSEx4gi-4       200000             10079 ns/op
-BenchmarkVecRoutines/cgo.MulXVAx8-4        3000000               590 ns/op
-BenchmarkVecWorker/Mul-4                   2000000               799 ns/op
-BenchmarkVecWorker/MulFunc-4               2000000               813 ns/op
-BenchmarkVecWorker/asm.MulSSEx4gi-4        1000000              1030 ns/op
-BenchmarkVecWorker/cgo.MulSSEx4-4          2000000               685 ns/op
-BenchmarkVecWorker/cgo.MulSSEx4gi-4         200000              9866 ns/op
-BenchmarkVecWorker/cgo.MulXVAx8-4          2000000               644 ns/op
+BenchmarkVecSingle/Mul-4                   10000            157489 ns/op
+BenchmarkVecSingle/MulFunc-4               10000            161500 ns/op
+BenchmarkVecSingle/asm.Mulf32x4sse-4       20000             61391 ns/op
+BenchmarkVecSingle/cgo.Mulf32x4sse-4       20000             62902 ns/op
+BenchmarkVecSingle/cgo.Mulf32x8xva-4       20000             60549 ns/op
+BenchmarkVecRoutines/Mul-4                 20000            102947 ns/op
+BenchmarkVecRoutines/MulFunc-4             10000            104255 ns/op
+BenchmarkVecRoutines/asm.Mulf32x4sse-4     30000             56851 ns/op
+BenchmarkVecRoutines/cgo.Mulf32x4sse-4     30000             56759 ns/op
+BenchmarkVecRoutines/cgo.Mulf32x8xva-4     30000             54143 ns/op
+BenchmarkVecWorker/Mul-4                   10000            101114 ns/op
+BenchmarkVecWorker/MulFunc-4               20000             96828 ns/op
+BenchmarkVecWorker/asm.Mulf32x4sse-4       30000             57762 ns/op
+BenchmarkVecWorker/cgo.Mulf32x4sse-4       30000             58025 ns/op
+BenchmarkVecWorker/cgo.Mulf32x8xva-4       30000             53736 ns/op
 PASS
-ok      github.com/gohxs/vec-benchmark  36.255s
+ok      github.com/gohxs/vec-benchmark  32.354s
 ```
 
 
