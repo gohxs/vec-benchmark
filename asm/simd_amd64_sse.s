@@ -20,28 +20,28 @@ TEXT ·VecMulf32x4(SB), $0-72
 	JG   panic  // jump to panic if not the same length. TODO: return bloody errors
 	
 
-	// check if there are at least 8 elements
+	// check if there are at least 16 floats
 	SUBQ $16, AX
-	JL   remainder
+	JL   remainder       // AX less than 0
 
 loop:
 	// a[0]
-	MOVAPS (SI), X0    // Take 4 float32s  to X0
+	MOVAPS (SI), X0      // Take 4 float32s  to X0
 	MOVAPS (DX), X1
 	MULPS  X0, X1
 	MOVAPS X1, (DI) 
 	
-	MOVAPS 16(SI), X2    // Next 16 bytes (each float32 is 4) - 8 float32
+	MOVAPS 16(SI), X2    // Next 16 bytes (each float32 is 4) - 4 float32
 	MOVAPS 16(DX), X3
 	MULPS  X2, X3
 	MOVAPS X3, 16(DI)
 
-	MOVAPS 32(SI), X4    // Next 16 bytes (each float32 is 4) - 8 float32
+	MOVAPS 32(SI), X4    // Next 16 bytes (each float32 is 4) - 4 float32
 	MOVAPS 32(DX), X5
 	MULPS  X4, X5
 	MOVAPS X5, 32(DI)
 
-	MOVAPS 48(SI), X6    // Next 16 bytes (each float32 is 4) - 8 float32
+	MOVAPS 48(SI), X6    // Next 16 bytes (each float32 is 4) - 4 float32
 	MOVAPS 48(DX), X7
 	MULPS  X6, X7
 	MOVAPS X7, 48(DI)
@@ -50,14 +50,14 @@ loop:
 	ADDQ $64, DI
 	ADDQ $64, DX
 
-	SUBQ $16, AX         // Count down 4*4 floats
+	SUBQ $16, AX         // Count down 4*4 floats 4xinstructions
 	JGE  loop            // Repeat
 
 remainder:
-	ADDQ $16, AX
-	JE   done
+	ADDQ $16, AX         // Re add 16 elems
+	JE   done            // if is 0 go to end
 
-remainderloop:
+remainderloop:  // 1 by 1
 
 	MOVSS (SI), X0
 	MOVSS (DX), X1

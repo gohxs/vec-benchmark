@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	vec "github.com/gohxs/vec-benchmark"
+	"github.com/gohxs/vec-benchmark/asm"
+	"github.com/gohxs/vec-benchmark/cgo"
 )
 
 var (
@@ -14,11 +16,12 @@ var (
 		name string
 		fn   vecFunc
 	}{
-		{"Mul", vec.Mul},
-		{"MulFunc", vec.MulFunc},
-		{"asm.Mulf32x4sse", vec.MulASMf32x4sse},
-		{"cgo.Mulf32x4sse", vec.MulCGOf32x4sse},
-		{"cgo.Mulf32x8xva", vec.MulCGOf32x8xva},
+		{"         VecMul", vec.Mul},
+		{"     VecMulFunc", vec.MulFunc},
+		{"asm.VecMulf32x4", asm.VecMulf32x4},
+		{"asm.VecMulf32x8", asm.VecMulf32x8},
+		{"cgo.VecMulf32x4", cgo.VecMulf32x4},
+		{"cgo.VecMulf32x8", cgo.VecMulf32x8},
 	}
 
 	NWorkers = 4                    // Workers for multiple go routines
@@ -30,6 +33,7 @@ var (
 	sample = make([]float32, vecSize)
 )
 
+// Move this to other place
 func init() {
 	workersLaunch()
 	for i := 0; i < len(vec1); i++ {
@@ -38,14 +42,60 @@ func init() {
 	}
 	vec.Mul(vec1, vec2, sample)
 }
+func TestCalc(t *testing.T) {
+	vecSize = 4 * 8
+	vec1 := make([]float32, vecSize)
+	vec2 := make([]float32, vecSize)
+	out := make([]float32, vecSize*2)
+	sample := make([]float32, vecSize)
+	for i := 0; i < len(vec1); i++ {
+		vec1[i] = float32(i)
+		vec2[i] = 2
+		sample[i] = vec1[i] * vec2[i]
+	}
+
+	for _, f := range testFuncs {
+		t.Run(f.name, func(t *testing.T) {
+			// 3x per type?
+
+			f.fn(vec1, vec2, out)
+			t.Logf("Single Vec1:   %2v", vec1)
+			t.Logf("Single Out:    %2v", out)
+			t.Logf("Single Sample: %2v", sample)
+			for i := range sample {
+				if sample[i] != out[i] {
+					t.Fatal("Value mismatch")
+				}
+			}
+
+			goVec(vec1, vec2, out, f.fn)
+			t.Logf("goVec  Vec1:   %2v", vec1)
+			t.Logf("goVec  Out:    %2v", out)
+			t.Logf("goVec  Sample: %2v", sample)
+			for i := range sample {
+				if sample[i] != out[i] {
+					t.Fatal("Value mismatch")
+				}
+			}
+			goWorkerVec(vec1, vec2, out, f.fn)
+			t.Logf("Worker Vec1:   %2v", vec1)
+			t.Logf("Worker Out:    %2v", out)
+			t.Logf("Worker Sample: %2v", sample)
+			for i := range sample {
+				if sample[i] != out[i] {
+					t.Fatal("Value mismatch")
+				}
+			}
+
+		})
+	}
+
+}
 
 func TestVecSingle(t *testing.T) {
 	for _, f := range testFuncs {
 		t.Run(f.name, func(t *testing.T) {
 			f.fn(vec1, vec2, out)
-			t.Logf("Vec1:   %2v", vec1)
-			t.Logf("Out:    %2v", out)
-			t.Logf("Sample: %2v", sample)
 			if !reflect.DeepEqual(sample, out) {
 				t.Fatal("Value mismatch")
 			}
@@ -56,8 +106,6 @@ func TestVecRoutines(t *testing.T) {
 	for _, f := range testFuncs {
 		t.Run(f.name, func(t *testing.T) {
 			goVec(vec1, vec2, out, f.fn)
-			t.Log(sample)
-			t.Log(out)
 			if !reflect.DeepEqual(sample, out) {
 				t.Fatal("Value mismatch")
 			}
@@ -68,8 +116,6 @@ func TestVecWorker(t *testing.T) {
 	for _, f := range testFuncs {
 		t.Run(f.name, func(t *testing.T) {
 			goWorkerVec(vec1, vec2, out, f.fn)
-			t.Log(sample)
-			t.Log(out)
 			if !reflect.DeepEqual(sample, out) {
 				t.Fatal("Value mismatch")
 			}

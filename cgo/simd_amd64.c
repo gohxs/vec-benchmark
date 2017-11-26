@@ -4,7 +4,7 @@
 
 
 //8 floats 32bits
-void VecMul256(int sz, float const *vec1,float const *vec2, float *out) {
+void VecMulf32x8(int sz, float const *vec1,float const *vec2, float *out) {
 
 	int max = sz/8; // sz = nfloats, sz / 8 floats
 	__m256 v1,v2, r;
@@ -15,7 +15,7 @@ void VecMul256(int sz, float const *vec1,float const *vec2, float *out) {
 		r = _mm256_mul_ps(v1,v2);
 		_mm256_store_ps(&out[s],r);
 	}
-	// Reminder
+	// Remainder
 	for (int i = max * 8; i<sz; i++) {
 		out[i] = vec1[i] * vec2[i];
 	}
@@ -24,10 +24,9 @@ void VecMul256(int sz, float const *vec1,float const *vec2, float *out) {
 
 
 //4 floats 32bits
-void VecMul128(int sz, float const *vec1, float const *vec2, float *out) {
+void VecMulf32x4(int sz, float const *vec1, float const *vec2, float *out) {
 	// 4 floats at a time
 	int max = sz/4; // sz = nfloats, sz / 8 floats
-	int rest = sz%8;
 	__m128 v1,v2, r;
 	for (int i = 0; i < max; i++) {
 		int s = i * 4; // 32 bytes
@@ -36,11 +35,10 @@ void VecMul128(int sz, float const *vec1, float const *vec2, float *out) {
 		r = _mm_mul_ps(v1,v2);
 		_mm_store_ps(&out[s],r);
 	}
-// Reminder
+	// Remainder
 	for (int i = max * 4; i< sz; i++) {
 		out[i] = vec1[i] * vec2[i];
 	}
-
 }
 
 
