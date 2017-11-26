@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"sync"
 	"testing"
-	"unsafe"
 
 	vec "github.com/gohxs/vec-benchmark"
 )
@@ -17,16 +16,16 @@ var (
 	}{
 		{"Mul", vec.Mul},
 		{"MulFunc", vec.MulFunc},
-		{"MulASMx4g", vec.MulASMx4g},
-		{"MulASMx4", vec.MulASMx4},
-		{"MulCGOx4", vec.MulCGOx4},
-		{"MulCGOx4g", vec.MulCGOx4g},
-		{"MulCGOx8", vec.MulCGOx8},
-		//{"vecCGo512", vec.VecCGo512},
+		{"asm.MulSSEx4gi", vec.MulASMSSEx4gi},
+		{"asm.MulChewxy", vec.MulASMChewxy},
+		//{"MulASMx4", vec.MulASMx4},
+		{"cgo.MulSSEx4", vec.MulCGOSSEx4},
+		{"cgo.MulSSEx4gi", vec.MulCGOSSEx4gi},
+		{"cgo.MulXVAx8", vec.MulCGOXVAx8},
 	}
 
-	NWorkers = 2
-	vecSize  = 32 * NWorkers * 8 // 8 floats to do 256bit operation4 million
+	NWorkers = 2                 // Workers for multiple go routines
+	vecSize  = 20 * NWorkers * 8 // 8 floats to do 256bit operation
 
 	vec1   = make([]float32, vecSize)
 	vec2   = make([]float32, vecSize)
@@ -38,94 +37,77 @@ func init() {
 	for i := 0; i < len(vec1); i++ {
 		vec1[i] = float32(i)
 		vec2[i] = 2
-
 	}
 	vec.Mul(vec1, vec2, sample)
 }
 
-// Adding Big vectors
-//
-func TestSlice(t *testing.T) {
-	for i := 0; i < 1000; i++ {
-		r := make([]float32, len(vec1))
-		addr := []uintptr{}
-		//diff := []int{}
-		for i := range r {
-			u := uintptr(unsafe.Pointer(&r[i]))
-			addr = append(addr, u)
-			if i != 0 {
-				if u-addr[i-1] != 4 {
-					t.Fatal("We have a subject here!")
-				}
-				//diff = append(diff, int(u-addr[i-1]))
-			}
-		}
-	}
-}
-
-func TestVectorSingle(t *testing.T) {
+func TestVecSingle(t *testing.T) {
+	out := make([]float32, vecSize)
 	for _, f := range testFuncs {
 		t.Run(f.name, func(t *testing.T) {
-			out := make([]float32, len(vec1))
 			f.fn(vec1, vec2, out)
+			t.Log(sample)
+			t.Log(out)
 			if !reflect.DeepEqual(sample, out) {
 				t.Fatal("Value mismatch")
 			}
-			t.Log(out)
 		})
 	}
 }
-func TestVectorRoutines(t *testing.T) {
+func TestVecRoutines(t *testing.T) {
+	out := make([]float32, vecSize)
 	for _, f := range testFuncs {
-		out := make([]float32, len(vec1))
 		t.Run(f.name, func(t *testing.T) {
-			goVector(vec1, vec2, out, f.fn)
+			goVec(vec1, vec2, out, f.fn)
+			t.Log(sample)
+			t.Log(out)
 			if !reflect.DeepEqual(sample, out) {
 				t.Fatal("Value mismatch")
 			}
-			t.Log(out)
 		})
 	}
 }
-func TestVectorWorker(t *testing.T) {
+func TestVecWorker(t *testing.T) {
+	out := make([]float32, vecSize)
 	for _, f := range testFuncs {
-		out := make([]float32, len(vec1))
 		t.Run(f.name, func(t *testing.T) {
-			goWorkerVector(vec1, vec2, out, f.fn)
+			goWorkerVec(vec1, vec2, out, f.fn)
+			t.Log(sample)
+			t.Log(out)
 			if !reflect.DeepEqual(sample, out) {
 				t.Fatal("Value mismatch")
 			}
-			t.Log(out)
 		})
 	}
 }
 
-func BenchmarkVectorSingle(b *testing.B) {
+// Benchmarks
+func BenchmarkVecSingle(b *testing.B) {
+	out := make([]float32, vecSize)
 	for _, f := range testFuncs {
 		b.Run(f.name, func(b *testing.B) {
-			out := make([]float32, len(vec1))
 			for n := b.N; n >= 0; n-- { // is this safe?
 				f.fn(vec1, vec2, out)
 			}
 		})
 	}
 }
-func BenchmarkVectorRoutines(b *testing.B) {
+func BenchmarkVecRoutines(b *testing.B) {
+	out := make([]float32, vecSize)
 	for _, f := range testFuncs {
 		b.Run(f.name, func(b *testing.B) {
-			out := make([]float32, len(vec1))
 			for n := b.N; n >= 0; n-- { // is this safe?
-				goVector(vec1, vec2, out, f.fn)
+				goVec(vec1, vec2, out, f.fn)
 			}
 		})
 	}
 }
-func BenchmarkVectorWorker(b *testing.B) {
+func BenchmarkVecWorker(b *testing.B) {
+	out := make([]float32, vecSize)
 	for _, f := range testFuncs {
 		b.Run(f.name, func(b *testing.B) {
-			out := make([]float32, len(vec1))
 			for n := b.N; n >= 0; n-- { // is this safe?
-				goWorkerVector(vec1, vec2, out, f.fn)
+				goWorkerVec(vec1, vec2, out, f.fn)
 			}
 		})
 	}
@@ -133,7 +115,8 @@ func BenchmarkVectorWorker(b *testing.B) {
 
 type vecFunc func(a, b, c []float32)
 
-func goVector(vec1, vec2, out []float32, fn vecFunc) {
+// routine Helper
+func goVec(vec1, vec2, out []float32, fn vecFunc) {
 	wg := sync.WaitGroup{}
 	wg.Add(NWorkers)
 
@@ -151,13 +134,14 @@ func goVector(vec1, vec2, out []float32, fn vecFunc) {
 	wg.Wait()
 }
 
-// Warmed go rountines
-// Data chunk
+// Workers go routines
 // worker data
 type workerData struct {
 	vec1, vec2, out []float32
 	fn              vecFunc
 }
+
+//worker
 type workerChan struct {
 	in   chan workerData
 	done chan int
@@ -192,7 +176,7 @@ func workersLaunch() {
 	}
 }
 
-func goWorkerVector(vec1, vec2, out []float32, fn vecFunc) {
+func goWorkerVec(vec1, vec2, out []float32, fn vecFunc) {
 	// send to bgRoutines
 	for i, ch := range workers { // Divide workload between cores?
 		sz := len(vec1) / NWorkers
