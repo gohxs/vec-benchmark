@@ -2,7 +2,7 @@
 
 // Based on Chewxy vec64f
 // func VecMulf32x8(a, b, out []float64)
-TEXT ·VecMulf32x8(SB), $0-72
+TEXT ·VecMulf32x8(SB), NOSPLIT, $0-72
 
 	MOVQ a_base+0(FP), SI
 	MOVQ b_base+24(FP), DX
@@ -26,30 +26,27 @@ TEXT ·VecMulf32x8(SB), $0-72
 loop:
 	// a[0]
 
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x28; BYTE $0x06          //vmovaps ymm0,yword [rsi]
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x28; BYTE $0x0A          //vmovaps ymm1,yword [rdx]
+	BYTE $0xC5; BYTE $0xFC; BYTE $0x10; BYTE $0x06          //vmovups ymm0,yword [rsi]
+	BYTE $0xC5; BYTE $0xFC; BYTE $0x10; BYTE $0x0A          //vmovups ymm1,yword [rdx]
 	BYTE $0xC5; BYTE $0xFC; BYTE $0x59; BYTE $0xC1          //vmulps ymm0,ymm0,ymm1
-  BYTE $0xC5; BYTE $0xFC; BYTE $0x29; BYTE $0x07          //vmovaps yword [rdi],ymm0
+  BYTE $0xC5; BYTE $0xFC; BYTE $0x11; BYTE $0x07          //vmovups yword [rdi],ymm0
 
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x28; BYTE$0x46; BYTE $32  //  vmovaps ymm0,yword [rsi+0x20]
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x28; BYTE$0x4A; BYTE $32  //  vmovaps ymm1,yword [rdx+0x20]
+	BYTE $0xC5; BYTE $0xFC; BYTE $0x10; BYTE$0x46; BYTE $32  //  vmovups ymm0,yword [rsi+0x20]
+	BYTE $0xC5; BYTE $0xFC; BYTE $0x10; BYTE$0x4A; BYTE $32  //  vmovups ymm1,yword [rdx+0x20]
 	BYTE $0xC5; BYTE $0xFC; BYTE $0x59; BYTE$0xC1;             //  vmulps ymm0,ymm0,ymm1
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x29; BYTE$0x47; BYTE $32  //  vmovaps yword [rdi+0x20],ymm0
+	BYTE $0xC5; BYTE $0xFC; BYTE $0x11; BYTE$0x47; BYTE $32  //  vmovups yword [rdi+0x20],ymm0
 	
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x28; BYTE$0x46; BYTE $64  //  vmovaps ymm0,yword [rsi+0x40]
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x28; BYTE$0x4A; BYTE $64  //  vmovaps ymm1,yword [rdx+0x40]
+	BYTE $0xC5; BYTE $0xFC; BYTE $0x10; BYTE$0x46; BYTE $64  //  vmovups ymm0,yword [rsi+0x40]
+	BYTE $0xC5; BYTE $0xFC; BYTE $0x10; BYTE$0x4A; BYTE $64  //  vmovups ymm1,yword [rdx+0x40]
 	BYTE $0xC5; BYTE $0xFC; BYTE $0x59; BYTE$0xC1;             //  vmulps ymm0,ymm0,ymm1
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x29; BYTE$0x47; BYTE $64  //  vmovaps yword [rdi+0x40],ymm0
+	BYTE $0xC5; BYTE $0xFC; BYTE $0x11; BYTE$0x47; BYTE $64  //  vmovups yword [rdi+0x40],ymm0
 
 
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x28; BYTE$0x46; BYTE $96  //  vmovaps ymm0,yword [rsi+0x60]
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x28; BYTE$0x4A; BYTE $96  //  vmovaps ymm1,yword [rdx+0x60]
+	BYTE $0xC5; BYTE $0xFC; BYTE $0x10; BYTE$0x46; BYTE $96  //  vmovups ymm0,yword [rsi+0x60]
+	BYTE $0xC5; BYTE $0xFC; BYTE $0x10; BYTE$0x4A; BYTE $96  //  vmovups ymm1,yword [rdx+0x60]
 	BYTE $0xC5; BYTE $0xFC; BYTE $0x59; BYTE$0xC1;             //  vmulps ymm0,ymm0,ymm1
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x29; BYTE$0x47; BYTE $96  //  vmovaps yword [rdi+0x60],ymm0
+	BYTE $0xC5; BYTE $0xFC; BYTE $0x11; BYTE$0x47; BYTE $96  //  vmovups yword [rdi+0x60],ymm0
 	
-
-
-
 
 
 	ADDQ $64, SI         // increment 8 iterations 4 * 16
@@ -63,8 +60,7 @@ remainder:
 	ADDQ $32, AX
 	JE   done
 
-remainderloop:
-
+remainderloop:        // 1 by 1
 	MOVSS (SI), X0
 	MOVSS (DX), X1
 	MULSS X0, X1

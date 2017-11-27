@@ -5,11 +5,30 @@ import (
 	"sync"
 )
 
+// GoVecMul Routine workers
+// Create routines per job
+func GoVecMul(NWorkers int, vec1, vec2, out []float32, fn MulFunc) {
+	wg := sync.WaitGroup{}
+	wg.Add(NWorkers)
+	for i := 0; i < NWorkers; i++ { // Divide workload between cores?
+		sz := len(vec1) / NWorkers
+		go func(offs int) {
+			fn(
+				vec1[offs:offs+sz],
+				vec2[offs:offs+sz],
+				out[offs:offs+sz],
+			)
+			wg.Done()
+		}(i * sz)
+	}
+	wg.Wait()
+}
+
 // WorkerJob data for worker to process
 type WorkerJob struct {
 	Vec1, Vec2, Out []float32
 	Fn              MulFunc
-	wg              *sync.WaitGroup
+	*sync.WaitGroup
 }
 
 // Worker worker channels
@@ -17,7 +36,6 @@ type Worker struct {
 	id         int
 	dbgState   string
 	workerPool *WorkerPool
-	//Done chan int
 }
 
 // Start starts a worker(go routine)
@@ -26,10 +44,7 @@ func (w *Worker) Start() {
 		for {
 			work := <-w.workerPool.In
 			work.Fn(work.Vec1, work.Vec2, work.Out)
-			work.wg.Done()
-			// work.Done() //per job waitgroup (Safe)
-			//w.pool.Done() // Per pool waitgroup
-
+			work.Done()
 		}
 	}()
 }
@@ -59,10 +74,13 @@ func NewWorkerPool(NWorkers int) *WorkerPool {
 		},
 	}
 	// Prealloc
-	wp.wgPool.Put(wp.wgPool.Get())
-	wp.wgPool.Put(wp.wgPool.Get())
-	wp.wgPool.Put(wp.wgPool.Get())
-	wp.wgPool.Put(wp.wgPool.Get())
+	wg := []interface{}{}
+	for i := 0; i < NWorkers; i++ {
+		wg = append(wg, wp.wgPool.Get())
+	}
+	for _, v := range wg { // Put back
+		wp.wgPool.Put(v)
+	}
 
 	wp.Launch(NWorkers)
 	return wp
@@ -86,12 +104,7 @@ func (wp *WorkerPool) VecMul(vec1, vec2, out []float32, fn MulFunc) {
 	var NWorkers = len(wp.workers)
 	var sz = len(vec1) / NWorkers
 
-	// Safer
-	//wp.Lock()
-	//defer wp.Unlock()
-	// Lock all process
-	// Contextual would be good here
-	// send to bgRoutines
+	// waitgroup for this session
 	wg := wp.wgPool.Get().(*sync.WaitGroup) // this is the alloc
 	wg.Add(NWorkers)
 	for i := range wp.workers { // Divide workload between cores?

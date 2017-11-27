@@ -1,7 +1,9 @@
 
 
+(WIP)
 
-#### Anatomy of simple vector add func
+
+#### Anatomy of simple vector mul func
 
 ```go
 func VecGo(vec1, vec2, out []float32) {

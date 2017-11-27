@@ -26,25 +26,25 @@ TEXT ·VecMulf32x4(SB), $0-72
 
 loop:
 	// a[0]
-	MOVAPS (SI), X0      // Take 4 float32s  to X0
-	MOVAPS (DX), X1
+	MOVUPS (SI), X0      // Take 4 float32s  to X0
+	MOVUPS (DX), X1
 	MULPS  X0, X1
-	MOVAPS X1, (DI) 
+	MOVUPS X1, (DI) 
 	
-	MOVAPS 16(SI), X2    // Next 16 bytes (each float32 is 4) - 4 float32
-	MOVAPS 16(DX), X3
-	MULPS  X2, X3
-	MOVAPS X3, 16(DI)
+	MOVUPS 16(SI), X0    // Next 16 bytes (each float32 is 4) - 4 float32
+	MOVUPS 16(DX), X1
+	MULPS  X0, X1
+	MOVUPS X1, 16(DI)
 
-	MOVAPS 32(SI), X4    // Next 16 bytes (each float32 is 4) - 4 float32
-	MOVAPS 32(DX), X5
+	MOVUPS 32(SI), X4    // Next 16 bytes (each float32 is 4) - 4 float32
+	MOVUPS 32(DX), X5
 	MULPS  X4, X5
-	MOVAPS X5, 32(DI)
+	MOVUPS X5, 32(DI)
 
-	MOVAPS 48(SI), X6    // Next 16 bytes (each float32 is 4) - 4 float32
-	MOVAPS 48(DX), X7
+	MOVUPS 48(SI), X6    // Next 16 bytes (each float32 is 4) - 4 float32
+	MOVUPS 48(DX), X7
 	MULPS  X6, X7
-	MOVAPS X7, 48(DI)
+	MOVUPS X7, 48(DI)
 
 	ADDQ $64, SI         // increment 4 iterations 4 * 16
 	ADDQ $64, DI
@@ -57,8 +57,8 @@ remainder:
 	ADDQ $16, AX         // Re add 16 elems
 	JE   done            // if is 0 go to end
 
-remainderloop:  // 1 by 1
-
+remainderloop:         // 1 by 1
+RET //temp
 	MOVSS (SI), X0
 	MOVSS (DX), X1
 	MULSS X0, X1

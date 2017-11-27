@@ -10,10 +10,12 @@ void VecMulf32x8(int sz, float const *vec1,float const *vec2, float *out) {
 	__m256 v1,v2, r;
 	for (int i = 0; i < max; i++) {
 		int s = i * 8; // 32 bytes
-		v1 = _mm256_load_ps(&vec1[s]);
-		v2 = _mm256_load_ps(&vec2[s]);
+		v1 = _mm256_loadu_ps(&vec1[s]);
+		v2 = _mm256_loadu_ps(&vec2[s]);
 		r = _mm256_mul_ps(v1,v2);
-		_mm256_store_ps(&out[s],r);
+
+		_mm256_storeu_ps(&out[s],r);
+		
 	}
 	// Remainder
 	for (int i = max * 8; i<sz; i++) {
@@ -30,10 +32,10 @@ void VecMulf32x4(int sz, float const *vec1, float const *vec2, float *out) {
 	__m128 v1,v2, r;
 	for (int i = 0; i < max; i++) {
 		int s = i * 4; // 32 bytes
-		v1 = _mm_load_ps(&vec1[s]);
-		v2 = _mm_load_ps(&vec2[s]);
+		v1 = _mm_loadu_ps(&vec1[s]);
+		v2 = _mm_loadu_ps(&vec2[s]);
 		r = _mm_mul_ps(v1,v2);
-		_mm_store_ps(&out[s],r);
+		_mm_storeu_ps(&out[s],r);
 	}
 	// Remainder
 	for (int i = max * 4; i< sz; i++) {
