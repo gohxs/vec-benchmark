@@ -103,7 +103,6 @@ func TestWorker(t *testing.T) {
 }
 
 func TestVec(t *testing.T) {
-	vec1, vec2, out := createVecs(100)
 	sample := make([]float32, len(vec1))
 	vec.Mul(vec1, vec2, sample) // Safe implementation
 

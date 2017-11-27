@@ -13,48 +13,46 @@ TEXT ·VecMulf32x4(SB), $0-72
 	MOVQ b_len+32(FP), BX   // len(b) into BX
 	MOVQ out_len+56(FP), CX // len(out) into DX
 
-	// check if they are the same length
-	CMPQ AX, BX
-	JNE  panic  // jump to panic if not the same length. TODO: return bloody errors
-	CMPQ AX, CX
-	JG   panic  // jump to panic if not the same length. TODO: return bloody errors
-	
 
-	// check if there are at least 16 floats
-	SUBQ $16, AX
-	JL   remainder       // AX less than 0
+	CMPQ AX, BX   // Check if a,b are same lenght
+	JNE  panic  
+	CMPQ AX, CX
+	JG   panic    // if output is smaller than inputs 
+	
+	SUBQ $16, AX         // n floats per loop
+	JL   remainder
 
 loop:
 	// a[0]
-	MOVUPS (SI), X0      // Take 4 float32s  to X0
+	MOVUPS (SI), X0
 	MOVUPS (DX), X1
 	MULPS  X0, X1
 	MOVUPS X1, (DI) 
 	
-	MOVUPS 16(SI), X0    // Next 16 bytes (each float32 is 4) - 4 float32
+	MOVUPS 16(SI), X0    // Next 16 bytes (each float32 is 4bytes) * 4 floats 16) - 4 float32
 	MOVUPS 16(DX), X1
 	MULPS  X0, X1
 	MOVUPS X1, 16(DI)
 
-	MOVUPS 32(SI), X4    // Next 16 bytes (each float32 is 4) - 4 float32
+	MOVUPS 32(SI), X4
 	MOVUPS 32(DX), X5
 	MULPS  X4, X5
 	MOVUPS X5, 32(DI)
 
-	MOVUPS 48(SI), X6    // Next 16 bytes (each float32 is 4) - 4 float32
+	MOVUPS 48(SI), X6
 	MOVUPS 48(DX), X7
 	MULPS  X6, X7
 	MOVUPS X7, 48(DI)
 
-	ADDQ $64, SI         // increment 4 iterations 4 * 16
+	ADDQ $64, SI         // increment sizeof(float32)4 * n
 	ADDQ $64, DI
 	ADDQ $64, DX
 
-	SUBQ $16, AX         // Count down 4*4 floats 4xinstructions
+	SUBQ $16, AX         // Count down n floats
 	JGE  loop            // Repeat
 
 remainder:
-	ADDQ $16, AX         // Re add 16 elems
+	ADDQ $16, AX         // Re add n elems
 	JE   done            // if is 0 go to end
 
 remainderloop:         // 1 by 1
