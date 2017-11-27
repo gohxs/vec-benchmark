@@ -34,7 +34,6 @@ type WorkerJob struct {
 // Worker worker channels
 type Worker struct {
 	id         int
-	dbgState   string
 	workerPool *WorkerPool
 }
 
@@ -49,12 +48,12 @@ func (w *Worker) Start() {
 	}()
 }
 
-func (w *Worker) work(j WorkerJob) {
-	w.workerPool.In <- j
-}
+//func (w *Worker) work(j WorkerJob) {
+//	w.workerPool.In <- j
+//}
 
 func (w *Worker) String() string {
-	return fmt.Sprintf("[worker %d (%s)]", w.id, w.dbgState)
+	return fmt.Sprintf("[worker %d]", w.id)
 }
 
 // WorkerPool struct containing all the running workers

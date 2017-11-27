@@ -25,9 +25,15 @@ var (
 		{"cgo.VecMulf32x8avx", cgo.VecMulf32x8},
 	}
 	NWorkers        = runtime.NumCPU() // Workers for multiple go routines
-	vec1, vec2, out = createVecs(100000 * NWorkers * 8)
+	vec1, vec2, out = createVecs(10000 * NWorkers * 8)
+	sample          = make([]float32, len(vec1))
 	worker          = vec.NewWorkerPool(NWorkers)
 )
+
+func init() {
+	vec.Mul(vec1, vec2, sample) // Safe implementation
+	runtime.GOMAXPROCS(NWorkers)
+}
 
 func createVecs(vecSize int) ([]float32, []float32, []float32) {
 	vec1 := make([]float32, vecSize)
@@ -41,7 +47,7 @@ func createVecs(vecSize int) ([]float32, []float32, []float32) {
 }
 
 func TestCalc(t *testing.T) {
-	vecSize := 1 * 10
+	vecSize := 10 * 8
 	vec1 := make([]float32, vecSize)
 	vec2 := make([]float32, vecSize)
 	out := make([]float32, vecSize*2)
@@ -103,23 +109,28 @@ func TestWorker(t *testing.T) {
 }
 
 func TestVec(t *testing.T) {
-	sample := make([]float32, len(vec1))
-	vec.Mul(vec1, vec2, sample) // Safe implementation
-
+	vecSize := 10 * NWorkers * 8
+	sample := make([]float32, vecSize)
+	for i := range sample {
+		sample[i] = float32(i) * 2
+	}
 	for _, f := range testFuncs {
 		t.Run("Single"+f.name, func(t *testing.T) {
+			vec1, vec2, out := createVecs(vecSize)
 			f.fn(vec1, vec2, out)
 			if !reflect.DeepEqual(sample, out) {
 				t.Fatal("Value mismatch")
 			}
 		})
 		t.Run("Routine/"+f.name, func(t *testing.T) {
+			vec1, vec2, out := createVecs(vecSize)
 			vec.GoVecMul(NWorkers, vec1, vec2, out, f.fn)
 			if !reflect.DeepEqual(sample, out) {
 				t.Fatal("Value mismatch")
 			}
 		})
 		t.Run("Worker"+f.name, func(t *testing.T) {
+			vec1, vec2, out := createVecs(vecSize)
 			worker.VecMul(vec1, vec2, out, f.fn)
 			if !reflect.DeepEqual(sample, out) {
 				t.Fatal("Value mismatch")
@@ -140,7 +151,6 @@ func BenchmarkVecSmall(b *testing.B) {
 			}
 		})
 	}
-
 	for _, f := range testFuncs {
 		b.Run("Routine/"+f.name, func(b *testing.B) {
 			for n := b.N; n >= 0; n-- { // is this safe?
@@ -148,7 +158,6 @@ func BenchmarkVecSmall(b *testing.B) {
 			}
 		})
 	}
-
 	for _, f := range testFuncs {
 		b.Run("Worker/"+f.name, func(b *testing.B) {
 			for n := b.N; n >= 0; n-- { // is this safe?
@@ -161,7 +170,6 @@ func BenchmarkVecSmall(b *testing.B) {
 
 // Benchmarks
 func BenchmarkVecBig(b *testing.B) {
-
 	for _, f := range testFuncs {
 		b.Run("Single/"+f.name, func(b *testing.B) {
 			for n := b.N; n >= 0; n-- { // is this safe?
@@ -169,7 +177,6 @@ func BenchmarkVecBig(b *testing.B) {
 			}
 		})
 	}
-
 	for _, f := range testFuncs {
 		b.Run("Routine/"+f.name, func(b *testing.B) {
 			for n := b.N; n >= 0; n-- { // is this safe?
@@ -177,7 +184,6 @@ func BenchmarkVecBig(b *testing.B) {
 			}
 		})
 	}
-
 	for _, f := range testFuncs {
 		b.Run("Worker/"+f.name, func(b *testing.B) {
 			for n := b.N; n >= 0; n-- { // is this safe?
