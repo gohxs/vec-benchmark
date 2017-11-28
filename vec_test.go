@@ -1,7 +1,6 @@
 package vec_test
 
 import (
-	"reflect"
 	"runtime"
 	"sync"
 	"testing"
@@ -25,70 +24,70 @@ var (
 		{"cgo.VecMulf32x8avx", cgo.VecMulf32x8},
 	}
 	NWorkers        = runtime.NumCPU() // Workers for multiple go routines
-	vec1, vec2, out = createVecs(10000 * NWorkers * 8)
-	sample          = make([]float32, len(vec1))
-	worker          = vec.NewWorkerPool(NWorkers)
+	vec1, vec2, out = createVecs(10000*NWorkers*8, 10000*NWorkers*8)
+	//sample          = make([]float32, len(vec1))
+	worker = vec.NewWorkerPool(NWorkers)
 )
 
 func init() {
-	vec.Mul(vec1, vec2, sample) // Safe implementation
 	runtime.GOMAXPROCS(NWorkers)
 }
 
-func createVecs(vecSize int) ([]float32, []float32, []float32) {
-	vec1 := make([]float32, vecSize)
-	vec2 := make([]float32, vecSize)
-	out := make([]float32, vecSize)
-	for i := 0; i < len(vec1); i++ {
-		vec1[i] = float32(i)
+func createVecs(vecLen, outLen int) ([]float32, []float32, []float32) {
+	vec1 := make([]float32, vecLen)
+	vec2 := make([]float32, vecLen)
+	out := make([]float32, outLen)
+	for i := 0; i < vecLen && i < outLen; i++ {
+		vec1[i] = float32(i + 1)
 		vec2[i] = 2
 	}
 	return vec1, vec2, out
 }
 
+func checkVec(t *testing.T, vecSize int, out []float32) {
+	for i := range out {
+		if i < vecSize {
+
+			if out[i] != float32(i+1)*2 {
+				t.Logf("Worker Out:    %2v", out)
+				t.Fatalf("Value mismatch at %d expected: %f got %f", i, float32(i)*2, out[i])
+			}
+		} else if out[i] != 0 {
+			t.Logf("Worker Out:    %2v", out)
+			t.Fatalf("Possible overflow at %d, expected:0 got: %f", i, out[i])
+		}
+	}
+}
+
 func TestCalc(t *testing.T) {
-	vecSize := 10 * 8
-	vec1 := make([]float32, vecSize)
-	vec2 := make([]float32, vecSize)
-	out := make([]float32, vecSize*2)
+	vecSize := 2*8 + 2
 	sample := make([]float32, vecSize)
-	for i := 0; i < len(vec1); i++ {
-		vec1[i] = float32(i)
-		vec2[i] = 2
-		sample[i] = vec1[i] * vec2[i]
+	for i := range sample {
+		sample[i] = float32(i+1) * 2
 	}
 
 	for _, f := range testFuncs {
-		t.Run(f.name, func(t *testing.T) {
+		t.Run("Single/"+f.name, func(t *testing.T) {
+			vec1, vec2, out := createVecs(vecSize, vecSize*2)
 			// 3x per type?
 			f.fn(vec1, vec2, out)
 			t.Logf("Single Vec1:   %2v", vec1)
-			t.Logf("Single Out:    %2v", out)
 			t.Logf("Single Sample: %2v", sample)
-			for i := range sample {
-				if sample[i] != out[i] {
-					t.Fatal("Value mismatch")
-				}
-			}
-
+			checkVec(t, vecSize, out)
+		})
+		t.Run("Routine/"+f.name, func(t *testing.T) {
+			vec1, vec2, out := createVecs(vecSize, vecSize*2)
 			vec.GoVecMul(NWorkers, vec1, vec2, out, f.fn)
 			t.Logf("goVec  Vec1:   %2v", vec1)
-			t.Logf("goVec  Out:    %2v", out)
 			t.Logf("goVec  Sample: %2v", sample)
-			for i := range sample {
-				if sample[i] != out[i] {
-					t.Fatal("Value mismatch")
-				}
-			}
+			checkVec(t, vecSize, out)
+		})
+		t.Run("Worker/"+f.name, func(t *testing.T) {
+			vec1, vec2, out := createVecs(vecSize, vecSize*2)
 			worker.VecMul(vec1, vec2, out, f.fn)
 			t.Logf("Worker Vec1:   %2v", vec1)
-			t.Logf("Worker Out:    %2v", out)
 			t.Logf("Worker Sample: %2v", sample)
-			for i := range sample {
-				if sample[i] != out[i] {
-					t.Fatal("Value mismatch")
-				}
-			}
+			checkVec(t, vecSize, out)
 		})
 	}
 
@@ -100,7 +99,7 @@ func TestWorker(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		go func() {
 			vecSize := 4 * 8
-			vec1, vec2, out := createVecs(vecSize)
+			vec1, vec2, out := createVecs(vecSize, vecSize)
 			worker.VecMul(vec1, vec2, out, vec.Mul)
 			wg.Done()
 		}()
@@ -112,29 +111,24 @@ func TestVec(t *testing.T) {
 	vecSize := 10 * NWorkers * 8
 	sample := make([]float32, vecSize)
 	for i := range sample {
-		sample[i] = float32(i) * 2
+		sample[i] = float32(i+1) * 2
 	}
 	for _, f := range testFuncs {
 		t.Run("Single"+f.name, func(t *testing.T) {
-			vec1, vec2, out := createVecs(vecSize)
+			vec1, vec2, out := createVecs(vecSize, vecSize)
 			f.fn(vec1, vec2, out)
-			if !reflect.DeepEqual(sample, out) {
-				t.Fatal("Value mismatch")
-			}
+			checkVec(t, vecSize, out)
+
 		})
 		t.Run("Routine/"+f.name, func(t *testing.T) {
-			vec1, vec2, out := createVecs(vecSize)
+			vec1, vec2, out := createVecs(vecSize, vecSize)
 			vec.GoVecMul(NWorkers, vec1, vec2, out, f.fn)
-			if !reflect.DeepEqual(sample, out) {
-				t.Fatal("Value mismatch")
-			}
+			checkVec(t, vecSize, out)
 		})
 		t.Run("Worker"+f.name, func(t *testing.T) {
-			vec1, vec2, out := createVecs(vecSize)
+			vec1, vec2, out := createVecs(vecSize, vecSize)
 			worker.VecMul(vec1, vec2, out, f.fn)
-			if !reflect.DeepEqual(sample, out) {
-				t.Fatal("Value mismatch")
-			}
+			checkVec(t, vecSize, out)
 		})
 	}
 }

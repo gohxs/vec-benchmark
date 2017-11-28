@@ -1,85 +1,78 @@
+// +build !noasm,!appengine
+
 #include "textflag.h"
 
-// Based on Chewxy vec64f
 // func VecMulf32x8(a, b, out []float64)
 TEXT ·VecMulf32x8(SB), $0-72
-
 	MOVQ a_base+0(FP), SI
 	MOVQ b_base+24(FP), DX
 	MOVQ out_base+48(FP),DI   // Destination
+	MOVQ out_len+56(FP), CX
 
-	MOVQ a_len+8(FP), AX      // len(a) into AX
-	MOVQ b_len+32(FP), BX     // len(b) into BX
-	MOVQ out_len+56(FP), CX   // len(out) into DX
+	// Smaller size for CX
+	CMPQ    a_len+8(FP), CX   // CX = max( len(out), len(a), len(b) )
+	CMOVQLE a_len+8(FP), CX  
+	CMPQ    b_len+32(FP), CX
+	CMOVQLE b_len+32(FP), CX
 
-	CMPQ AX, BX   // Check if a,b are same lenght
-	JNE  panic  
-	CMPQ AX, CX
-	JG   panic    // if output is smaller than inputs 
+	MOVQ    DX, BX
+	ANDQ    $15, BX            // BX = &y & OxF
+	JZ      no_align           // if BX == 0 { goto div_no_trim }
 
-	// Do alignment and use aligned movs?
-	/*MOVQ DI ,R8
-	ANDQ $0xF0, R8
-	CMPQ R8,$0
-	JZ aligned_loop*/
-	
-	SUBQ $32, AX   // n floats per loop
+	// An alignment could happen here?
+	// Align on 16-bit boundary test
+	MOVSS (SI), X0    // X0 = s[i]
+	MULSS (DX), X0    // X0 *= t[i]
+	MOVSS  X0, (DI)   // dst[i] = X0
+
+	ADDQ $4, SI
+	ADDQ $4, DX
+	ADDQ $4, DI
+	DECQ  CX                // --CX
+
+no_align:
+	SUBQ $32, CX   // n floats per loop
 	JL   remainder
-
 loop:
 	// a[0]
-                             // 0x28 for vmovaps
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x10; BYTE $0x06           //  vmovups ymm0,yword [rsi]
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x10; BYTE $0x0A           //  vmovups ymm1,yword [rdx]
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x59; BYTE $0xC1           //  vmulps ymm0,ymm0,ymm1
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x11; BYTE $0x07           //  vmovups yword [rdi],ymm0
-	                           // 0x29 for vmovaps
-	
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x10; BYTE$0x46; BYTE $32  //  vmovups ymm0,yword [rsi+0x20]
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x10; BYTE$0x4A; BYTE $32  //  vmovups ymm1,yword [rdx+0x20]
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x59; BYTE$0xC1;           //  vmulps ymm0,ymm0,ymm1
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x11; BYTE$0x47; BYTE $32  //  vmovups yword [rdi+0x20],ymm0
+	BYTE $0xC5; BYTE $0xFC; BYTE $0x28; BYTE $0x06;            	//C5FC1006          vmovups ymm0,yword [rsi]
+	BYTE $0xC5; BYTE $0xFC; BYTE $0x28; BYTE $0x4E;BYTE $0x20; 	//C5FC104E20        vmovups ymm1,yword [rsi+0x20]
+	BYTE $0xC5; BYTE $0xFC; BYTE $0x28; BYTE $0x56;BYTE $0x40; 	//C5FC105640        vmovups ymm2,yword [rsi+0x40]
+	BYTE $0xC5; BYTE $0xFC; BYTE $0x28; BYTE $0x5E;BYTE $0x60; 	//C5FC105E60        vmovups ymm3,yword [rsi+0x60]
 
+	BYTE $0xC5; BYTE $0xFC; BYTE $0x59; BYTE $0x02;            	//C5FC5902          vmulps ymm0,ymm0,yword [rdx]
+	BYTE $0xC5; BYTE $0xF4; BYTE $0x59; BYTE $0x4A;BYTE $0x20; 	//C5F4594A20        vmulps ymm1,ymm1,yword [rdx+0x20]
+	BYTE $0xC5; BYTE $0xEC; BYTE $0x59; BYTE $0x52;BYTE $0x40; 	//C5EC595240        vmulps ymm2,ymm2,yword [rdx+0x40]
+	BYTE $0xC5; BYTE $0xE4; BYTE $0x59; BYTE $0x5A;BYTE $0x60; 	//C5E4595A60        vmulps ymm3,ymm3,yword [rdx+0x60]
 
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x10; BYTE$0x46; BYTE $64  //  vmovups ymm0,yword [rsi+0x40]
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x10; BYTE$0x4A; BYTE $64  //  vmovups ymm1,yword [rdx+0x40]
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x59; BYTE$0xC1;           //  vmulps ymm0,ymm0,ymm1
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x11; BYTE$0x47; BYTE $64  //  vmovups yword [rdi+0x40],ymm0
+	BYTE $0xC5; BYTE $0xFC; BYTE $0x29; BYTE $0x07;            	//C5FC1107          vmovups yword [rdi],ymm0
+	BYTE $0xC5; BYTE $0xFC; BYTE $0x29; BYTE $0x4F;BYTE $0x20; 	//C5FC114F20        vmovups yword [rdi+0x20],ymm1
+	BYTE $0xC5; BYTE $0xFC; BYTE $0x29; BYTE $0x57;BYTE $0x40; 	//C5FC115740        vmovups yword [rdi+0x40],ymm2
+	BYTE $0xC5; BYTE $0xFC; BYTE $0x29; BYTE $0x5F;BYTE $0x60; 	//C5FC115F60        vmovups yword [rdi+0x60],ymm3
 
+	// this is faster than do a single add 
+	// a single reg and offseting in MOV ptrs
+	ADDQ $4*32, SI         // increment sizeof(float32)4 * n floats
+	ADDQ $4*32, DI 
+	ADDQ $4*32, DX
 
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x10; BYTE$0x46; BYTE $96  //  vmovups ymm0,yword [rsi+0x60]
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x10; BYTE$0x4A; BYTE $96  //  vmovups ymm1,yword [rdx+0x60]
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x59; BYTE$0xC1;           //  vmulps ymm0,ymm0,ymm1
-	BYTE $0xC5; BYTE $0xFC; BYTE $0x11; BYTE$0x47; BYTE $96  //  vmovups yword [rdi+0x60],ymm0
-	
-
-	ADDQ $128, SI         // increment sizeof(float32)4 * n floats
-	ADDQ $128, DI 
-	ADDQ $128, DX
-
-	SUBQ $32, AX           // Count down n floats
+	SUBQ $32, CX          // Count down n floats
 	JGE  loop             // Repeat
+
 remainder:
-	ADDQ $32, AX
+	ADDQ $32, CX
 	JE   done
 
 remainderloop:        // 1 by 1
 	MOVSS (SI), X0
-	MOVSS (DX), X1
-	MULSS X0, X1
-	MOVSS X1, (DI)
+	MULSS (DX), X0
+	MOVSS X0, (DI)
 
-	// update pointer to the top of the data
 	ADDQ $4, SI
 	ADDQ $4, DI
 	ADDQ $4, DX
 
-	DECQ AX
-	JNE  remainderloop
+	LOOP remainderloop
 
 done:
-	RET
-
-panic:
-	CALL runtime·panicindex(SB)
 	RET

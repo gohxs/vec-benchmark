@@ -10,16 +10,22 @@ import (
 func GoVecMul(NWorkers int, vec1, vec2, out []float32, fn MulFunc) {
 	wg := sync.WaitGroup{}
 	wg.Add(NWorkers)
+	lasti := NWorkers - 1
 	for i := 0; i < NWorkers; i++ { // Divide workload between cores?
 		sz := len(vec1) / NWorkers
-		go func(offs int) {
+		go func(i int) {
+			s := i * sz
+			e := s + sz
+			if i == lasti {
+				e = len(vec1)
+			}
 			fn(
-				vec1[offs:offs+sz],
-				vec2[offs:offs+sz],
-				out[offs:offs+sz],
+				vec1[s:e],
+				vec2[s:e],
+				out[s:e],
 			)
 			wg.Done()
-		}(i * sz)
+		}(i)
 	}
 	wg.Wait()
 }
@@ -106,9 +112,13 @@ func (wp *WorkerPool) VecMul(vec1, vec2, out []float32, fn MulFunc) {
 	// waitgroup for this session
 	wg := wp.wgPool.Get().(*sync.WaitGroup) // this is the alloc
 	wg.Add(NWorkers)
+	lasti := len(wp.workers) - 1
 	for i := range wp.workers { // Divide workload between cores?
 		s := i * sz
 		e := s + sz
+		if i == lasti {
+			e = len(vec1)
+		}
 		wp.In <- WorkerJob{vec1[s:e], vec2[s:e], out[s:e], fn, wg} // Copy all
 	}
 	wg.Wait()

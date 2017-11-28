@@ -1,78 +1,81 @@
+// +build !noasm,!appengine
 
 #include "textflag.h"
 
-// Based on Chewxy vec64f
-// func VecMul(a, b, out []float64)
-TEXT ·VecMulf32x4(SB), $0-72
+// func VecMulf32x4(a, b, out []float32) int
+TEXT ·VecMulf32x4(SB), NOSPLIT, $0
+	MOVQ    a_base+0(FP), SI  // SI = &a
+	MOVQ    b_base+24(FP), DX  // DX = &b
+	MOVQ    out_base+48(FP), DI // DI = &out
+	MOVQ    out_len+56(FP), CX  // CX = len(out)
 
-	MOVQ a_base+0(FP), SI
-	MOVQ b_base+24(FP), DX
-	MOVQ out_base+48(FP),DI   // Destination
+	// Smaller size for CX
+	CMPQ    a_len+8(FP), CX   // CX = max( len(out), len(a), len(b) )
+	CMOVQLE a_len+8(FP), CX  
+	CMPQ    b_len+32(FP), CX
+	CMOVQLE b_len+32(FP), CX
 
-	MOVQ a_len+8(FP), AX    // len(a) into AX
-	MOVQ b_len+32(FP), BX   // len(b) into BX
-	MOVQ out_len+56(FP), CX // len(out) into DX
+	MOVQ    DX, BX
+	ANDQ    $15, BX            // BX = &y & OxF
+	JZ      no_align           // if BX == 0 { goto div_no_trim }
 
+	// An alignment could happen here?
+	// Align on 16-bit boundary test
+	MOVSS (SI), X0    // X0 = s[i]
+	MULSS (DX), X0    // X0 *= t[i]
+	MOVSS  X0, (DI)   // dst[i] = X0
 
-	CMPQ AX, BX   // Check if a,b are same lenght
-	JNE  panic  
-	CMPQ AX, CX
-	JG   panic    // if output is smaller than inputs 
+	ADDQ $4, SI
+	ADDQ $4, DX
+	ADDQ $4, DI
+	DECQ  CX                // --CX
+	JZ    done              // if CX == 0 { return }
+
+no_align:
+	SUBQ $16, CX                  // take 16 floats 4sse * 4unroll
+	JL remainder                 // if less than 0
+
+loop:													 // Loop unrolled 4x   do {
+	// # MEM TO REG ptr increment 
+	MOVAPS   (SI), X0
+	MOVAPS 16(SI), X1
+	MOVAPS 32(SI), X2
+	MOVAPS 48(SI), X3
+
+	MULPS    (DX), X0        // X0 /= y[i:i+1]
+	MULPS  16(DX), X1
+	MULPS  32(DX), X2
+	MULPS  48(DX), X3
+
+	MOVAPS X0,   (DI)        // dst[i:i+1] = X0
+	MOVAPS X1, 16(DI)
+	MOVAPS X2, 32(DI)
+	MOVAPS X3, 48(DI)
+
+	// this is faster than do a single add 
+	// a single reg and offseting in MOV ptrs
+
+	ADDQ $4*16, SI            
+	ADDQ $4*16, DI
+	ADDQ $4*16, DX
 	
-	SUBQ $16, AX         // n floats per loop
-	JL   remainder
+	SUBQ $16, CX // Take 16 floats
+	JGE loop
 
-loop:
-	// a[0]
-	MOVUPS (SI), X0
-	MOVUPS (DX), X1
-	MULPS  X0, X1
-	MOVUPS X1, (DI) 
-	
-	MOVUPS 16(SI), X0    // Next 16 bytes (each float32 is 4bytes) * 4 floats 16) - 4 float32
-	MOVUPS 16(DX), X1
-	MULPS  X0, X1
-	MOVUPS X1, 16(DI)
+remainder:                // Reset loop registers
+	ADDQ $16,CX                   // Add back since its negative
+	JE done
 
-	MOVUPS 32(SI), X4
-	MOVUPS 32(DX), X5
-	MULPS  X4, X5
-	MOVUPS X5, 32(DI)
-
-	MOVUPS 48(SI), X6
-	MOVUPS 48(DX), X7
-	MULPS  X6, X7
-	MOVUPS X7, 48(DI)
-
-	ADDQ $64, SI         // increment sizeof(float32)4 * n
-	ADDQ $64, DI
-	ADDQ $64, DX
-
-	SUBQ $16, AX         // Count down n floats
-	JGE  loop            // Repeat
-
-remainder:
-	ADDQ $16, AX         // Re add n elems
-	JE   done            // if is 0 go to end
-
-remainderloop:         // 1 by 1
-RET //temp
+remainderloop:                     // do { // Last couple of things
 	MOVSS (SI), X0
-	MOVSS (DX), X1
-	MULSS X0, X1
-	MOVSS X1, (DI)
+	MULSS (DX), X0
+	MOVSS X0, (DI)
 
-	// update pointer to the top of the data
 	ADDQ $4, SI
 	ADDQ $4, DI
 	ADDQ $4, DX
 
-	DECQ AX
-	JNE  remainderloop
+	LOOP  remainderloop              // } while --CX > 0
 
 done:
-	RET
-
-panic:
-	CALL runtime·panicindex(SB)
 	RET
