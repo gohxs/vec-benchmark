@@ -8,11 +8,17 @@ import (
 // GoVecMul Routine workers
 // Create routines per job
 func GoVecMul(NWorkers int, vec1, vec2, out []float32, fn MulFunc) {
+	sz := len(vec1) / NWorkers
+	lasti := NWorkers - 1
+
 	wg := sync.WaitGroup{}
 	wg.Add(NWorkers)
-	lasti := NWorkers - 1
+	if sz == 0 {
+		fn(vec1, vec2, out)
+		return
+	}
+
 	for i := 0; i < NWorkers; i++ { // Divide workload between cores?
-		sz := len(vec1) / NWorkers
 		go func(i int) {
 			s := i * sz
 			e := s + sz
@@ -108,6 +114,10 @@ func (wp *WorkerPool) Launch(NWorkers int) {
 func (wp *WorkerPool) VecMul(vec1, vec2, out []float32, fn MulFunc) {
 	var NWorkers = len(wp.workers)
 	var sz = len(vec1) / NWorkers
+	if sz == 0 {
+		fn(vec1, vec2, out)
+		return
+	}
 
 	// waitgroup for this session
 	wg := wp.wgPool.Get().(*sync.WaitGroup) // this is the alloc

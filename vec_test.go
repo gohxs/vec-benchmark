@@ -60,7 +60,7 @@ func checkVec(t *testing.T, vecSize int, out []float32) {
 }
 
 func TestCalc(t *testing.T) {
-	vecSize := 2*8 + 2
+	vecSize := 3
 	sample := make([]float32, vecSize)
 	for i := range sample {
 		sample[i] = float32(i+1) * 2
