@@ -9,6 +9,9 @@ import "unsafe"
 
 // VecMulf32x8 AVX multiply using Intel intrinsics
 func VecMulf32x8(vec1, vec2, out []float32) {
+	if len(vec1) == 0 {
+		return
+	}
 	C.VecMulf32x8(
 		C.int(len(vec1)),
 		(*C.float)(unsafe.Pointer(&vec1[0])),
@@ -19,6 +22,9 @@ func VecMulf32x8(vec1, vec2, out []float32) {
 
 // VecMulf32x4 SSE intel extension
 func VecMulf32x4(vec1, vec2, out []float32) {
+	if len(vec1) == 0 {
+		return
+	}
 	C.VecMulf32x4(
 		C.int(len(vec1)),
 		(*C.float)(unsafe.Pointer(&vec1[0])),

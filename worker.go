@@ -17,7 +17,6 @@ func GoVecMul(NWorkers int, vec1, vec2, out []float32, fn MulFunc) {
 		fn(vec1, vec2, out)
 		return
 	}
-
 	for i := 0; i < NWorkers; i++ { // Divide workload between cores?
 		go func(i int) {
 			s := i * sz
@@ -25,11 +24,7 @@ func GoVecMul(NWorkers int, vec1, vec2, out []float32, fn MulFunc) {
 			if i == lasti {
 				e = len(vec1)
 			}
-			fn(
-				vec1[s:e],
-				vec2[s:e],
-				out[s:e],
-			)
+			fn(vec1[s:e], vec2[s:e], out[s:e])
 			wg.Done()
 		}(i)
 	}
