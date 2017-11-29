@@ -8,41 +8,37 @@
 TEXT ·VecMulf32x8(SB), $0
 	MOVQ a_base+0(FP), SI
 	MOVQ b_base+24(FP), DX
-	MOVQ out_base+48(FP),DI   // Destination
+	MOVQ out_base+48(FP),DI			         // Destination
 	MOVQ out_len+56(FP), CX
 
 	// Smaller size for CX
-	CMPQ    a_len+8(FP), CX   // CX = max( len(out), len(a), len(b) )
-	CMOVQLE a_len+8(FP), CX  
+	CMPQ    a_len+8(FP), CX			         // CX = max( len(out), len(a), len(b) )
+	CMOVQLE a_len+8(FP), CX
 	CMPQ    b_len+32(FP), CX
 	CMOVQLE b_len+32(FP), CX
 
 	CMPQ CX,$0
 	JE done
 
-	// Alignment of DI (out)
+	// Alignment of DX for mul(out)
 alignment:
-	MOVQ    DI, BX
-	ANDQ    $15, BX            // BX = &y & 15
-	JZ      aligned            // if BX == 0 { goto div_no_trim }
+	MOVQ    DX, BX                       // Check DX addr
+	ANDQ    $15, BX					        	
+	JZ      aligned							         // if 16byte aligned
 	
-	MOVSS (SI), X0    // X0 = s[i]
-	MULSS (DX), X0    // X0 *= t[i]
-	MOVSS  X0, (DI)   // dst[i] = X0
+	MOVSS (SI), X0						           // Add 1v1 until aligned
+	MULSS (DX), X0					
+	MOVSS  X0, (DI)				
 
 	ADDQ $4, SI
 	ADDQ $4, DX
 	ADDQ $4, DI
 
-	DECQ  CX                // --CX
-	JZ    done              // if CX == 0 { return }
-	JMP alignment
-	
-	// end align
-	// jmp alignment again?
+	DECQ  CX										         // --CX
+	JZ    done									         // if CX == 0 { return }
 
 aligned:
-	SUBQ NFLOATS, CX   // n floats per loop
+	SUBQ NFLOATS, CX						         // n floats per loop (including instruction)
 	JL   remainder
 loop:
 	// a[0]
@@ -63,18 +59,18 @@ loop:
 	BYTE $0xC5; BYTE $0xFC; BYTE $0x11; BYTE $0x5F;BYTE $0x60; 	//C5FC115F60        vmovups yword [rdi+0x60],ymm3
 
 	// this is faster than to add a single reg and offseting in MOV ptrs
-	ADDQ NFLOATS*4, SI         // increment sizeof(float32)4 * n floats
-	ADDQ NFLOATS*4, DI 
+	ADDQ NFLOATS*4, SI                   // increment sizeof(float32)4 * n floats
+	ADDQ NFLOATS*4, DI
 	ADDQ NFLOATS*4, DX
 
-	SUBQ NFLOATS, CX          // Count down n floats
-	JGE  loop                 // Repeat
+	SUBQ NFLOATS, CX                     // Count down n floats
+	JGE  loop
 
 remainder:
 	ADDQ NFLOATS, CX
 	JE   done
 
-remainderloop:        // 1 by 1
+remainderloop:                         // 1 by 1
 	MOVSS (SI), X0
 	MULSS (DX), X0
 	MOVSS X0, (DI)

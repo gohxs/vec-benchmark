@@ -55,23 +55,18 @@ func TestAlignment(t *testing.T) {
 	//
 	for _, f := range testFuncs {
 		t.Run("Single/"+f.name, func(t *testing.T) {
-			i := 1
 			// Pre align?
-			/*for {
-				//for i := 0; i < 4; i++ {
-				t.Logf("alignment?: %p", &out[i])
-				if uintptr(unsafe.Pointer(&out[i]))%16 != 0 {
-					t.Log("Not aligned")
-					out[i] = vec1[i] * vec2[i]
-					i++
-					continue
-				}
-				break
-			}/**/
-			t.Log("Starting at:", i, &out[i])
-			f.fn(vec1[i:], vec2[i:], out[i:]) /*
-				_, _, _ = vec1, vec2, out /**/
-			checkVec(16, out[i:])
+			for i := 0; i < 8; i++ {
+				t.Log("Starting at:", i, &out[i])
+				f.fn(vec1[i:], vec2[i:], out[i+2:])
+				checkVec(16, out[i:])
+				f.fn(vec1[i:], vec2[i:], out[i+1:])
+				checkVec(16, out[i:])
+				f.fn(vec1[i+1:], vec2[i:], out[i:])
+				checkVec(16, out[i:])
+				f.fn(vec1[i:], vec2[i:], out[i:])
+				checkVec(16, out[i:])
+			}
 			//}
 		})
 	}
