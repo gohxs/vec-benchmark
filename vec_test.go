@@ -11,6 +11,7 @@ import (
 	vec "github.com/gohxs/vec-benchmark"
 	"github.com/gohxs/vec-benchmark/asm"
 	"github.com/gohxs/vec-benchmark/cgo"
+	"github.com/gohxs/vec-benchmark/cl"
 )
 
 var (
@@ -25,6 +26,7 @@ var (
 		{"asm.VecMulf32x8avx", asm.VecMulf32x8},
 		{"cgo.VecMulf32x4sse", cgo.VecMulf32x4},
 		{"cgo.VecMulf32x8avx", cgo.VecMulf32x8},
+		{"      cl.VecMulf32", cl.VecMulf32},
 	}
 	NWorkers = runtime.NumCPU() // Workers for multiple go routines
 	vecSize  int
