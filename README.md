@@ -1,8 +1,6 @@
 Researching vector multiplication optimizations
 ==================================================
 
-My studies [research.md](research.md)
-
 Running
 -----------
 
@@ -124,3 +122,4 @@ ok      github.com/gohxs/vec-benchmark  74.490s
 ```
 
 
+(Opencl still in development phase)
